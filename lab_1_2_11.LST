@@ -1,0 +1,191 @@
+A51 MACRO ASSEMBLER  LAB_1_2_11                                                           06/09/2022 12:24:40 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.02b
+OBJECT MODULE PLACED IN lab_1_2_11.OBJ
+ASSEMBLER INVOKED BY: C:\Keil_v5\C51\BIN\A51.EXE lab_1_2_11.a51 SET(SMALL) DEBUG EP
+
+LOC  OBJ            LINE     SOURCE
+
+                       1     ; Assembler programm that is used to controll stepper motor by controll system based
+                       2     ; Intel 8051 microcontroller.
+                       3     
+0000                   4     org 0000H; Set next command address.
+0000 753008            5     mov 30h, #00001000b; Constant value related to 1-st motor windings, makes the current flow.
+0003 753104            6     mov 31h, #00000100b; Constant value related to 2-d motor windings, makes the current flow.
+0006 753202            7     mov 32h, #00000010b; Constant value related to 3-d motor windings, makes the current flow.
+0009 753301            8     mov 33h, #00000001b; Constant value related to 4-th motor windings, makes the current flow.
+000C 02000F            9     ljmp start; Go to start lable (entry point).
+                      10     ; Main entry point.
+000F                  11     start:
+000F 758921           12                     mov tmod, #00100001b; Set timer-iterator mode register flags.
+0012 758800           13                     mov tcon, #00000000b; Set timer-iterator control register flags.
+0015 759840           14                     mov scon, #01000000b; Set continues register flags.
+0018 758700           15                     mov pcon, #00000000b; Set power control register flags.
+001B 75A800           16                     mov ie, #00000000b; Set interrupt mask register flags.
+001E 75B800           17                     mov ip, #00000000b; Set interrupt priority register flags.
+0021 758DFE           18                     mov th1, #11111110b
+0024 7833             19                     mov r0, #33h; Set the 4-th motor winding as the intitional turned on windin
+                             g.
+                      20     ; Rotate the motor shaft to the left untill it reaches initial position.
+0026                  21     set_init_position:
+0026 7901             22                     mov r1, #01; Number of steps.
+0028 120050           23                     lcall left; Call left, make r1 steps to the left.
+                      24                     ; If INT0 bit is set to 0, then the shaft have reached the initial postion.
+                      25                     ; Check if the 2-d bit (INT0) in port3 is set to 0.
+                      26                     ; If INT0=0, then continue, else go back to set_init_position lable.
+002B 20B2F8           27                     jb p3.2, set_init_position
+                      28                     ; Init UART
+002E D29C             29                     setb ren; Set UART ren bit equal to 1, turn on UART.
+0030 D28E             30                     setb tr1; Set tr1 bit equal to 1, turn on timer-iterator.
+0032                  31     receive_UART:
+                      32                     ; While receiving data UART ri bit is set to 0.
+                      33                     ; Once it is done receivng data ri UART bit is set to 1.
+0032 3098FD           34                     jnb ri, receive_UART; loop until the UART is not done receiving data.
+0035 C298             35                     clr ri; set ri to 0.
+                      36                     ; The received data is saved in sbuf.
+0037 E599             37                     mov a, sbuf; Save sbuf into accumulator a, find the number of steps. 
+0039 547F             38                     anl a, #01111111b; Perform logical & (and). Save the number of steps in acu
+                             mmulator.
+                      39                     ; The first bit indicates the direction of rotation: 0 - left, 1 - right.
+                      40                     ; The last 7 bits stores the number to steps (maximum 127 steps).
+003B F9               41                     mov r1, a; Set the ammount of steps that were stored in the last 7 bits.
+003C E599             42                     mov a, sbuf
+003E 5480             43                     anl a, #10000000b; Perform logical &, find the rotataion direction, save it
+                              in acummulator.
+0040 6002             44                     jz turn_left; If accumulator is equal to 0 (turn left), then jump to turn_l
+                             eft.
+0042 7006             45                     jnz turn_right; If accumulator is equal to 1 (turn right), then jump to tur
+                             n_right.
+0044                  46     turn_left:
+0044 120050           47                     lcall left
+0047 020032           48                     ljmp receive_UART
+004A                  49     turn_right:
+004A 120074           50                     lcall right
+004D 020032           51                     ljmp receive_UART
+0050                  52     left:
+0050 C290             53                     clr p1.0
+A51 MACRO ASSEMBLER  LAB_1_2_11                                                           06/09/2022 12:24:40 PAGE     2
+
+0052 8680             54                     mov p0, @r0
+0054 18               55                     dec r0 
+0055 7B02             56                     mov r3, #2d; 45
+0057                  57     ml1:
+0057 758C26           58                     mov th0, #100110b
+005A 758AFB           59                     mov tl0, #11111011b
+005D D28C             60                     setb tr0
+005F                  61     ml2:
+005F 308DFD           62                     jnb tf0, ml2
+0062 C28C             63                     clr tr0
+0064 C28D             64                     clr tf0
+0066 1B               65                     dec r3
+0067 BB00ED           66                     cjne r3, #0d, ml1
+006A B82F02           67                     cjne r0, #2fh, ml3
+006D A833             68                     mov r0, 33h
+006F                  69     ml3:
+006F D9DF             70                     djnz r1, left
+0071 D290             71                     setb p1.0
+0073 22               72                     ret
+0074                  73     right:
+0074 C290             74                     clr p1.0 
+0076 8680             75                     mov p0, @r0
+0078 08               76                     inc r0
+0079 7B02             77                     mov r3, #2d
+007B                  78     mr1:
+007B 758C26           79                     mov th0, #100110b
+007E 758AFB           80                     mov tl0, #11111011b
+0081 D28C             81                     setb tr0
+0083                  82     mr2:
+0083 308DFD           83                     jnb tf0, mr2
+0086 C28C             84                     clr tr0
+0088 C28D             85                     clr tf0
+008A 1B               86                     dec r3
+008B BB00ED           87                     cjne r3, #0d, mr1
+008E B83402           88                     cjne r0, #34h, mr3
+0091 A830             89                     mov r0, 30h
+0093                  90     mr3:
+0093 D9DF             91                     djnz r1, right
+0095 D290             92                     setb p1.0
+0097 22               93                     ret
+                      94     end
+                             ;left:
+                                     ;setb p3.0
+                                     ;mov p1, @r0 ; before change mov p1, @r0
+                                     ;dec r0; Switch to the next motor winding.
+                                     ;mov th0, #0100110b; Init T/C0 TH0=100110B (This value should be calculated).
+                                     ;mov tl0, #11111011b; Init T/C0 TL0=11111011B (This value should be calculated).
+                                     ;setb tr0; Turn on the timer.
+                             ;m1:
+                                     ;jnb tf0, m1; Loop until the timer finishes its work, tf0=1.
+                                     ;clr tf0
+                                     ;cjne r0, #2fh, m2; If r0 != #2fh, then jump to m2.
+                                     ;mov r0, 33h; else set r0, if r0 is less then 30h, then set it back to 33h (max).
+                             ;m2:
+                                     ;djnz r1, left; Decrement r1 and jump to left, if r1 not equal to 0.
+                                     ;setb p3.0
+                                     ;ret
+                             
+                             ;right:
+                                     ;setb p3.0
+                                     ;mov p1, @r0
+                                     ;inc r0
+                                     ;mov th0, #10111010b
+                                     ;mov tl0, #01000101b
+                                     ;setb tr0
+                             ;m3:
+A51 MACRO ASSEMBLER  LAB_1_2_11                                                           06/09/2022 12:24:40 PAGE     3
+
+                                     ;jnb tf0, m3
+                                     ;clr tf0
+                                     ;cjne r0, #38h, m4
+                                     ;mov r0, 30h
+                             ;m4:
+                                     ;djnz r1, right
+                                     ;setb p3.0
+                                     ;ret
+                             ;end
+A51 MACRO ASSEMBLER  LAB_1_2_11                                                           06/09/2022 12:24:40 PAGE     4
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E             T Y P E  V A L U E   ATTRIBUTES
+
+IE . . . . . . . .  D ADDR   00A8H   A   
+IP . . . . . . . .  D ADDR   00B8H   A   
+LEFT . . . . . . .  C ADDR   0050H   A   
+ML1. . . . . . . .  C ADDR   0057H   A   
+ML2. . . . . . . .  C ADDR   005FH   A   
+ML3. . . . . . . .  C ADDR   006FH   A   
+MR1. . . . . . . .  C ADDR   007BH   A   
+MR2. . . . . . . .  C ADDR   0083H   A   
+MR3. . . . . . . .  C ADDR   0093H   A   
+P0 . . . . . . . .  D ADDR   0080H   A   
+P1 . . . . . . . .  D ADDR   0090H   A   
+P3 . . . . . . . .  D ADDR   00B0H   A   
+PCON . . . . . . .  D ADDR   0087H   A   
+RECEIVE_UART . . .  C ADDR   0032H   A   
+REN. . . . . . . .  B ADDR   0098H.4 A   
+RI . . . . . . . .  B ADDR   0098H.0 A   
+RIGHT. . . . . . .  C ADDR   0074H   A   
+SBUF . . . . . . .  D ADDR   0099H   A   
+SCON . . . . . . .  D ADDR   0098H   A   
+SET_INIT_POSITION.  C ADDR   0026H   A   
+START. . . . . . .  C ADDR   000FH   A   
+TCON . . . . . . .  D ADDR   0088H   A   
+TF0. . . . . . . .  B ADDR   0088H.5 A   
+TH0. . . . . . . .  D ADDR   008CH   A   
+TH1. . . . . . . .  D ADDR   008DH   A   
+TL0. . . . . . . .  D ADDR   008AH   A   
+TMOD . . . . . . .  D ADDR   0089H   A   
+TR0. . . . . . . .  B ADDR   0088H.4 A   
+TR1. . . . . . . .  B ADDR   0088H.6 A   
+TURN_LEFT. . . . .  C ADDR   0044H   A   
+TURN_RIGHT . . . .  C ADDR   004AH   A   
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S)
